@@ -1,2 +1,4 @@
-# syr2
-TP SYR2 L3 Info
+#TP SYR2
+
+* **Erwan IQUEL**
+* **Vincent Guegnaud**
