@@ -8,10 +8,9 @@ int main(int argc, char* argv[])
     printf("Entrez une commande: ");
     fgets(commande, sizeof(commande), stdin);
     clean(commande);
-    printf("%s\n", commande);
+    printf("\n");
 
     commandthread(commande);
-    break;
   }
 
   return 0;
@@ -49,6 +48,7 @@ int commandthread(char* commande) {
     ret = 1;
   } else {
     waitpid(-1, &status, 0);
+    printf("\n");
     ret = 1;
   }
 
