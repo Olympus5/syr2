@@ -1,16 +1,22 @@
-#include <shell2.h>
+#include <shell3.h>
 
 int main(int argc, char* argv[])
 {
   char commande[50];
+  char commande2[50];
 
   while(1) {
-    printf("Entrez une commande: ");
+    printf("Entrez une premiere commande: ");
     fgets(commande, sizeof(commande), stdin);
     clean(commande);
+
+    printf("\nEntrez une deuxieme commande: ");
+    fgets(commande, sizeof(commande2), stdin);
+    clean(commande2);
+
     printf("\n");
 
-    commandthread(commande);
+    commandthread(commande, commande2);
     break;
   }
 
@@ -33,21 +39,30 @@ static void purger() {
   while((c = getchar()) != '\n' && c != EOF);
 }
 
-int commandthread(char* commande) {
+int commandthread(char* commande, char* commande2) {
   int ret = -1,
       status,
       size = numberofparams(commande),
-      error;
+      size2 = numberofparams(commande2),
+      error, error2;
   char* params[size];
+  char* params2[size2];
   pid_t pid;
 
-  error = splitcommand(commande, size, params);
+  //tableau d'entier qui stocke les tampons I/O du pipe
+  int fd[2];
 
-  if(error > 0) {
+  error = splitcommand(commande, size, params);
+  error2 = splitcommand(commande2, size2, params2);
+
+  //Création du pipe AVANT le fork, on ne crée un tube que dans un seul processus
+  pipe(fd);
+
+  if(error > 0 && error2 > 0) {
     pid = fork();
 
     if(pid == -1) {
-      fprintf(stderr, "Erreur fork");
+      perror("Erreur fork");
       exit(1);
     }
 
@@ -55,12 +70,18 @@ int commandthread(char* commande) {
 
     if(pid == 0) {
       execvp(params[0], params);
+      //Fermeture du pipe in
+      close(fd[1]);
     } else {
       waitpid(-1, &status, 0);
+      //Fermeture du pipe out
+      close(fd[0]);
       printf("\n");
     }
 
     ret = 1;
+  } else {
+    printf("%d\n", error);
   }
 
   return ret;

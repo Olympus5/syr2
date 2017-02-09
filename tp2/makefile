@@ -1,8 +1,13 @@
 CC=gcc
-CFLAGS=-W -Wall -c -g -I ./include
-EXEC=shell1 shell2
+CFLAGS=-W -Wall -c -g -I ./include -pedantic
+EXEC=shell1 shell2 shell3
 
 all : $(EXEC)
+
+shell3: obj/shell3.o
+
+obj/shell3.o: src/shell3.c include/shell3.h
+	$(CC) -o obj/shell3.o -c src/shell3.c $(CFLAGS)
 
 shell2: obj/shell2.o
 	$(CC) -o bin/shell2 obj/shell2.o
