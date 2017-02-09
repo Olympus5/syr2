@@ -11,13 +11,14 @@ int main(int argc, char* argv[])
     clean(commande);
 
     printf("\nEntrez une deuxieme commande: ");
-    fgets(commande, sizeof(commande2), stdin);
+    fgets(commande2, sizeof(commande2), stdin);
+
     clean(commande2);
 
     printf("\n");
 
     commandthread(commande, commande2);
-    break;
+    //break;
   }
 
   return 0;
@@ -49,14 +50,16 @@ int commandthread(char* commande, char* commande2) {
   char* params2[size2];
   pid_t pid;
 
-  //tableau d'entier qui stocke les tampons I/O du pipe
+  /*tableau d'entier qui stocke les tampons I/O du pipe*/
   int fd[2];
 
   error = splitcommand(commande, size, params);
   error2 = splitcommand(commande2, size2, params2);
 
-  //Création du pipe AVANT le fork, on ne crée un tube que dans un seul processus
-  pipe(fd);
+  /*Création du pipe AVANT le fork, on ne crée un tube que dans un seul processus*/
+  if(pipe(fd) != 0) {
+      perror("Erreur pipe");
+  }
 
   if(error > 0 && error2 > 0) {
     pid = fork();
@@ -69,13 +72,28 @@ int commandthread(char* commande, char* commande2) {
     if(!strcmp(params[0], "exit")) exit(0);
 
     if(pid == 0) {
-      execvp(params[0], params);
-      //Fermeture du pipe in
+      /*Fermeture du pipe in*/
       close(fd[1]);
-    } else {
-      waitpid(-1, &status, 0);
-      //Fermeture du pipe out
+
+      /*Liaison de la sortie du tube à stdin*/
+      dup2(fd[0], STDIN_FILENO);
+
       close(fd[0]);
+
+      /*Execution de la commande 2*/
+      execvp(params2[0], params2);
+    } else {
+      /*Fermeture du pipe out*/
+      close(fd[0]);
+
+      /*Liaison de l'entrée du tube à stdout*/
+      dup2(fd[1], STDOUT_FILENO);
+
+      close(fd[1]);
+
+      /*Execution de la commande 1*/
+      execvp(params[0], params);
+
       printf("\n");
     }
 
@@ -92,10 +110,10 @@ int numberofparams(char* commande) {
   char* token = NULL;
   char tmp[strlen(commande)];
 
-  //Copie la commande pour pouvoir l'utiliser par la suite dans d'autre fonctions
+  /*Copie la commande pour pouvoir l'utiliser par la suite dans d'autre fonction*/
   strcpy(tmp, commande);
 
-  //Calcul le nombre de paramètre de la commande
+  /*Calcul le nombre de paramètre de la commande*/
   token = strtok(tmp, " ");
   if(token != NULL) c++;
 
@@ -112,13 +130,13 @@ int splitcommand(char* commande, const int count, char* params[]) {
   int i;
   char* token;
 
-  //Commande inexistante
+  /*Commande inexistante*/
   if(commande != NULL) {
-    //Nombre de paramètre inférieur ou égal à 0
+    /*Nombre de paramètre inférieur ou égal à 0*/
     ret = -2;
 
     if(count > 0) {
-      //Pas de tableau pour ranger les paramètres
+      /*Pas de tableau pour ranger les paramètres*/
       ret = -3;
 
       if(params != NULL) {
