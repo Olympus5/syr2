@@ -72,6 +72,7 @@ int commandthread(char* commande, char* commande2) {
     if(!strcmp(params[0], "exit")) exit(0);
 
     if(pid == 0) {
+
       /*Fermeture du pipe in*/
       close(fd[1]);
 
@@ -93,7 +94,6 @@ int commandthread(char* commande, char* commande2) {
 
       /*Execution de la commande 1*/
       execvp(params[0], params);
-
       printf("\n");
     }
 
