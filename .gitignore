@@ -34,3 +34,6 @@
 
 #Compte rendu
 *.tar.gz
+
+#README
+tp*/README
