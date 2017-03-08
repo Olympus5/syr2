@@ -1,0 +1,13 @@
+Pour faire fonctionner la sortie audio sur des systèmes Linux modernes
+il faut exécuter les programmes en rajoutant le mot "padsp" devant le
+nom du programme. Par exemple, au lieu de lancer:
+./a.out
+
+il faut lancer:
+padsp ./a.out
+
+ATTENTION: padsp semble avoir un comportement capricieux cette
+année. Si votre programme ne fonctionne pas parce que write() échoue à
+cause de "connection reset by peer", ce n'est pas forcément un bug de
+votre programme. Essayez simplement de relancer le programme quelques
+fois.
