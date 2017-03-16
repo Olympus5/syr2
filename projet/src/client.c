@@ -2,14 +2,14 @@
 
 int main(int argc, char* argv[]) {
   int fd, error;
-  struct sockaddr_in addr;
   struct sockaddr_in dest;
-  socklen_t len;
-  char buf[1024], buf_test[64] = "LOURD !";
+  char buf[1024];
 
   printf("============= CLIENT =============\n\n\n");
 
   fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  error = fd;
 
   if(error < 0) {
     perror("Error socket");
@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  println("%s\n", buf);
+  printf("%s\n", buf);
 
   close(fd);
 
