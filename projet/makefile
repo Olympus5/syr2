@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-W -Wall -I include/ -g -pedantic
-EXEC=lecture serveur
+EXEC=lecture serveur client
 
 all: $(EXEC)
 
