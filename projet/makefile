@@ -23,11 +23,11 @@ bin/serveur: obj/serveur.o
 bin/client: obj/client.o
 	$(CC) -o bin/client obj/client.o
 
-bin/audioserver: obj/audioserver.o
-	$(CC) -o bin/audioserver obj/audioserver.o
+bin/audioserver: obj/audioserver.o obj/audio.o
+	$(CC) -o bin/audioserver obj/audioserver.o obj/audio.o
 
-bin/audioclient: obj/audioclient.o
-	$(CC) -o bin/audioclient obj/audioclient.o
+bin/audioclient: obj/audioclient.o obj/audio.o
+	$(CC) -o bin/audioclient obj/audioclient.o obj/audio.o
 
 obj/audio.o: src/audio.c include/audio.h
 	$(CC) -o obj/audio.o -c src/audio.c $(CFLAGS)

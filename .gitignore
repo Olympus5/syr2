@@ -37,3 +37,7 @@
 
 #README
 tp*/README
+
+#Fichier son
+*.wav
+*.mp3

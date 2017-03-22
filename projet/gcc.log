@@ -1,0 +1,2 @@
+gcc -o obj/audioclient.o -c src/audioclient.c -W -Wall -I include/ -g -pedantic
+gcc -o bin/audioclient obj/audioclient.o obj/audio.o

@@ -43,7 +43,7 @@ void start(char* file) {
     exit(1);
   }
 
-  while((ssize_t)sample_size >= (error = read(fd_read, buf, (size_t)sample_size))) {
+  while((ssize_t)sample_size <= (error = read(fd_read, buf, (size_t)sample_size))) {
     error = write(fd_write, buf, (size_t)sample_size);
     if(error < 0) {
       perror(NULL);
