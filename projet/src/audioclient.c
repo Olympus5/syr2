@@ -65,7 +65,7 @@ int request_handling(int fd, char* filename) {
   int fd_write;
   struct sockaddr_in dest;
   char audio_metadata[BUFFER_SIZE];/*Buffers de reception des metadonnées*/
-  char* buf;/*Buffers de reception des données*/
+  char buf[BUFFER_SIZE];/*Buffers de reception des données*/
 
   strcpy(audio_metadata, filename);
 
@@ -98,14 +98,12 @@ int request_handling(int fd, char* filename) {
     return error;
   }
 
-  buf = (char*) malloc(sample_size);
-
   /*Lecture du fichier audio*/
   error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
-  while(sample_size >= (error = recvfrom(fd, buf, sizeof(buf), 0, NULL, 0))) {
+  while(BUFFER_SIZE >= (error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0))) {
 
-    if(strcmp("FIN", buf)) break;
+    if(strncmp("FIN", buf, (size_t) 3) == 0) break;
 
     printf("Test\n");
 
@@ -119,10 +117,8 @@ int request_handling(int fd, char* filename) {
 
     error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
-    bzero(buf, sample_size);
+    bzero(buf, (size_t)BUFFER_SIZE);
   }
-
-  free(buf);
 
   if(error < 0) {
     return error;

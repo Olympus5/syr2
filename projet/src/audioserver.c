@@ -99,10 +99,18 @@ int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
   int fd_read;
   socklen_t flen;
   char audio_metadata[BUFFER_SIZE];/*Buffers pour l'envoie des metadonnées*/
-  char* buf_data;/*Buffers pour l'envoie des données*/
-  char buf[1];
-  char* end = "FIN";
+  char buf_data[BUFFER_SIZE];/*Buffers pour l'envoie des données*/
+  char buf[1];/*buffer qui stocke le flag de requête pour recevoir la partie suivante de la donnée*/
+  char* end = "FIN";/*flag de fin d'envoie de la donnée*/
   ssize_t error;
+  struct timeval tv;/*Timeout du serveur*/
+  int nb;/*nombre de descripteurs de fichiers prêts*/
+  fd_set readfds;/*Listes des descripteur de fichiers en lecture*/
+
+  /*Initialisation de select pour gérer un TIMEOUT*/
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  FD_ZERO(&readfds);
 
   /*Initialisation du descripteur de fichier pour lire la piste audio*/
   fd_read = error = aud_readinit(filename, &sample_rate, &sample_size, &channels);
@@ -110,8 +118,6 @@ int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
   if(error < 0) {
     return error;
   }
-
-  buf_data = (char*) malloc(sample_size);
 
   flen = sizeof(struct sockaddr_in);
 
@@ -123,44 +129,68 @@ int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
     return error;
   }
 
-  bzero(audio_metadata, BUFFER_SIZE);
+  bzero(audio_metadata, (size_t)BUFFER_SIZE);
 
   int i = 0;
 
   /*Envoie des informtions du fichier audio au client*/
-  while((ssize_t)sample_size <= (error = read(fd_read, buf_data, (size_t)sample_size))) {
-    printf("Valeur de i=%d\n", i);
+  while((ssize_t) sample_size <= (error = read(fd_read, buf_data, (size_t) sample_size))) {
+    tv.tv_sec = 10;
+    tv.tv_usec = 0;
+
+    if(error < 0) {
+      return error;
+    }
+
+    FD_SET(fd, &readfds);
+
+    //printf("Valeur de i=%d\n", i);
+    //printf("Attente d'une requête...\n");
+
+    nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+    if(error < 0) {
+      return error;
+    }
+
+    if(nb == 0) {/*Si timeout atteind...*/
+      bzero(buf_data, (size_t)BUFFER_SIZE);
+      break;
+    }
+
+    if (FD_ISSET(fd, &readfds)) {
+      error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
+      if(error < 0) {
+        return error;
+      }
+
+      error = sendto(fd, buf_data, BUFFER_SIZE, 0, (struct sockaddr*) &from, flen);
+
+      /*printf("%d => %d\n", sample_size, error);*/
+
+      if(error < 0) {
+        return error;
+      }
+    }
+
+    i++;
+
+    FD_CLR(fd, &readfds);
+    bzero(buf_data, (size_t)BUFFER_SIZE);
+  }
+
+  /*Pour gérer le timeout*/
+  if(nb == 0) {
+    printf("Délais expiré\n");
+  } else {
     error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
 
     if(error < 0) {
       return error;
     }
 
-    error = sendto(fd, buf_data, sample_size, 0, (struct sockaddr*) &from, flen);
-
-    printf("%d => %d\n", sample_size, error);
-
-    if(error < 0) {
-      return error;
-    }
-
-    i++;
-    bzero(buf_data, sample_size);
+    error = sendto(fd, end, strlen(end), 0, (struct sockaddr*) &from, flen);
   }
-
-  error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
-
-  if(error < 0) {
-    return error;
-  }
-
-  error = sendto(fd, end, strlen(end), 0, (struct sockaddr*) &from, flen);
-
-  if(error < 0) {
-    return error;
-  }
-
-  free(buf_data);
 
   if(error < 0) {
     return error;
