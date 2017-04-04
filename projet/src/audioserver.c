@@ -60,7 +60,7 @@ int start_server() {
 int request_handling(int fd) {
   int error;
   socklen_t len, flen;
-  char buf[BUFFER_SIZE], buf_test[64] = "LOURD !";
+  char buf[BUFFER_SIZE];
   struct sockaddr_in from;
 
   flen = sizeof(struct sockaddr_in);
@@ -80,7 +80,7 @@ int request_handling(int fd) {
       return error;
     }
 
-    //error = sendto(fd, buf_test, strlen(buf_test)+1, 0, (struct sockaddr*) &from, flen);
+    /*error = sendto(fd, buf_test, strlen(buf_test)+1, 0, (struct sockaddr*) &from, flen);*/
 
     error = lectura_expendiente(buf, fd, from);
 
@@ -97,9 +97,11 @@ int request_handling(int fd) {
 int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
   int sample_rate, sample_size, channels;/*Metadonnées du fichier audio*/
   int fd_read;
-  int flen;
+  socklen_t flen;
   char audio_metadata[BUFFER_SIZE];/*Buffers pour l'envoie des metadonnées*/
-  char* buf;/*Buffers pour l'envoie des données*/
+  char* buf_data;/*Buffers pour l'envoie des données*/
+  char buf[1];
+  char* end = "FIN";
   ssize_t error;
 
   /*Initialisation du descripteur de fichier pour lire la piste audio*/
@@ -109,7 +111,7 @@ int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
     return error;
   }
 
-  buf = (char*) malloc(sample_size);
+  buf_data = (char*) malloc(sample_size);
 
   flen = sizeof(struct sockaddr_in);
 
@@ -123,22 +125,42 @@ int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
 
   bzero(audio_metadata, BUFFER_SIZE);
 
+  int i = 0;
+
   /*Envoie des informtions du fichier audio au client*/
-  while((ssize_t)sample_size <= (error = read(fd_read, buf, (size_t)sample_size))) {
-    error = sendto(fd, buf, sample_size, 0, (struct sockaddr*) &from, flen);
-
-    //printf("%d => %d\n", sample_size, error);
-
-    error = 10;
+  while((ssize_t)sample_size <= (error = read(fd_read, buf_data, (size_t)sample_size))) {
+    printf("Valeur de i=%d\n", i);
+    error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
 
     if(error < 0) {
       return error;
     }
 
-    bzero(buf, sample_size);
+    error = sendto(fd, buf_data, sample_size, 0, (struct sockaddr*) &from, flen);
+
+    printf("%d => %d\n", sample_size, error);
+
+    if(error < 0) {
+      return error;
+    }
+
+    i++;
+    bzero(buf_data, sample_size);
   }
 
-  free(buf);
+  error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
+
+  if(error < 0) {
+    return error;
+  }
+
+  error = sendto(fd, end, strlen(end), 0, (struct sockaddr*) &from, flen);
+
+  if(error < 0) {
+    return error;
+  }
+
+  free(buf_data);
 
   if(error < 0) {
     return error;

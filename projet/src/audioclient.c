@@ -101,8 +101,14 @@ int request_handling(int fd, char* filename) {
   buf = (char*) malloc(sample_size);
 
   /*Lecture du fichier audio*/
-  while(0 > (error = recvfrom(fd, buf, sizeof(buf), 0, NULL, 0))) {
+  error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+
+  while(sample_size >= (error = recvfrom(fd, buf, sizeof(buf), 0, NULL, 0))) {
+
+    if(strcmp("FIN", buf)) break;
+
     printf("Test\n");
+
     error = write(fd_write, buf, (size_t)sample_size);
 
     printf("%s\n", buf);
@@ -110,6 +116,8 @@ int request_handling(int fd, char* filename) {
     if(error < 0) {
       return error;
     }
+
+    error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
     bzero(buf, sample_size);
   }
