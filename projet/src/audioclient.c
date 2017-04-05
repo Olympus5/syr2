@@ -47,6 +47,8 @@ int main(int argc, char* argv[]) {
 int init_client() {
   int fd, error;
 
+  printf("============= CLIENT =============\n\n\n");
+
   /* Initialise la socket */
   fd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -66,24 +68,46 @@ int request_handling(int fd, char* filename) {
   struct sockaddr_in dest;
   char audio_metadata[BUFFER_SIZE];/*Buffers de reception des metadonnées*/
   char buf[BUFFER_SIZE];/*Buffers de reception des données*/
-
-  strcpy(audio_metadata, filename);
+  struct timeval tv;/*Timeout du client*/
+  int nb;/*nombre de descripteurs de fichiers prêts*/
+  fd_set readfds;/*Listes des descripteur de fichiers*/
 
   dest.sin_family = AF_INET;
   dest.sin_port = htons(PORT);
   dest.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  /* Envois de la requête au serveur */
-  error = sendto(fd, audio_metadata, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+  FD_ZERO(&readfds);
 
-  if(error < 0) {
-    return error;
-  }
+  /*Demande d'une piste audio au serveur + reception des metadonnées*/
+  do {
+    /* Envois de la requête au serveur */
+    error = sendto(fd, filename, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
-  printf("============= CLIENT =============\n\n\n");
+    if(error < 0) {
+      return error;
+    }
 
-  /* Attente de la réponse du serveur et traitement de la réponse*/
-  error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    FD_SET(fd, &readfds);
+
+    nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+    if(error < 0){
+      return error;
+    }
+
+    if (FD_ISSET(fd, &readfds)) {
+      /* Attente de la réponse du serveur et traitement de la réponse*/
+      error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
+
+      if(error < 0){
+        return error;
+      }
+    }
+
+    FD_CLR(fd, &readfds);
+  } while(nb == 0);
 
   printf("%s\n", audio_metadata);
 
@@ -99,9 +123,37 @@ int request_handling(int fd, char* filename) {
   }
 
   /*Lecture du fichier audio*/
-  error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
-  while(BUFFER_SIZE >= (error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0))) {
+  do {
+
+    do {
+      error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+
+      if(error < 0) {
+        return error;
+      }
+
+      tv.tv_sec = 1;
+      tv.tv_usec = 0;
+      FD_SET(fd, &readfds);
+
+      nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+      if(error < 0){
+        return error;
+      }
+
+      if (FD_ISSET(fd, &readfds)) {
+        /* Attente de la réponse du serveur et traitement de la réponse*/
+        error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
+
+        if(error < 0){
+          return error;
+        }
+      }
+
+      FD_CLR(fd, &readfds);
+    } while (nb == 0);
 
     if(strncmp("FIN", buf, (size_t) 3) == 0) break;
 
@@ -115,10 +167,8 @@ int request_handling(int fd, char* filename) {
       return error;
     }
 
-    error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
-
     bzero(buf, (size_t)BUFFER_SIZE);
-  }
+  } while (error <= BUFFER_SIZE);
 
   if(error < 0) {
     return error;
