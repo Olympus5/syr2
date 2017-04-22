@@ -66,6 +66,13 @@ int request_handling(int fd, char* filename) {
   struct sockaddr_in dest;
   char audio_metadata[BUFFER_SIZE];/*Buffers de reception des metadonnées*/
   char buf[BUFFER_SIZE];/*Buffers de reception des données*/
+  struct timeval tv;//Timeout du client
+  fd_set readfds;//Liste contenant le descripteur de fichier du client
+  int ttl;
+
+  FD_ZERO(&readfds);
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
 
   strcpy(audio_metadata, filename);
 
@@ -82,8 +89,25 @@ int request_handling(int fd, char* filename) {
 
   printf("============= CLIENT =============\n\n\n");
 
-  /* Attente de la réponse du serveur et traitement de la réponse*/
-  error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
+  FD_SET(fd, &readfds);
+
+  error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+  if(error < 0) {
+    return error;
+  }
+
+  if(error == 0) {
+    printf("Timeout écoulé, la requête n'a pas pu etre pris en charge. Veuillez ressayer.\n");
+    return 0;
+  }
+
+  if(FD_ISSET(fd, &readfds)) {
+    /* Attente de la réponse du serveur et traitement de la réponse*/
+    error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
+  }
+
+  FD_CLR(fd, &readfds);
 
   printf("%s\n", audio_metadata);
 
@@ -99,11 +123,13 @@ int request_handling(int fd, char* filename) {
   }
 
   /*Lecture du fichier audio*/
-  error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+  /*error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
-  while(BUFFER_SIZE >= (error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0))) {
+  while(BUFFER_SIZE <= (error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0))) {
 
-    if(strncmp("FIN", buf, (size_t) 3) == 0) break;
+    if(strncmp("FIN", buf, (size_t) 3) == 0) {
+      break;
+    }
 
     printf("Test\n");
 
@@ -118,6 +144,52 @@ int request_handling(int fd, char* filename) {
     error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
     bzero(buf, (size_t)BUFFER_SIZE);
+  }*/
+
+  strcpy(buf, "XXX");
+  ttl = 64;
+
+  while((strncmp("FIN", buf, (size_t) 3) != 0) && (ttl > 0)) {
+    bzero(buf, (size_t)BUFFER_SIZE);
+    
+    error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+
+    if(error < 0) {
+      return error;
+    }
+
+    FD_SET(fd, &readfds);
+
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+
+    error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+    if(error < 0) {
+      return error;
+    }
+
+    if(error == 0) {
+      ttl--;
+      continue;
+    }
+
+    if(FD_ISSET(fd, &readfds)) {
+      ttl = 64;
+      error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
+
+      printf("%s\n", buf);
+
+      if(error < 0) {
+        return error;
+      }
+
+      error = write(fd_write, buf, (size_t)sample_size);
+
+      if(error < 0) {
+        return error;
+      }
+    }
   }
 
   if(error < 0) {
