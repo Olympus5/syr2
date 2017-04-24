@@ -51,7 +51,7 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
  * @param channels
  * @return un code entier inferieur à 0 si il y a une erreur, 0 sinon
  */
-int init_write(char* audio_metadata, char* choix, int* sample_rate, int* sample_size, int* channels);
+int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate, int* sample_size, int* channels);
 
 /**
  * Traite les différentes étapes de la requête vers le serveur audio

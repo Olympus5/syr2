@@ -2,9 +2,16 @@
 
 int main(int argc, char* argv[]) {
   int fd, error;
+  char* name;
+
+  if(argc > 1) {
+    name = argv[1];
+  } else {
+    name = "localhost";
+  }
 
   /*Lancement du serveur audio*/
-  fd = error = start_server();
+  fd = error = start_server(name);
 
   if(error < 0) {
     perror("Erreur lors du démarrage du serveur\n");
@@ -26,9 +33,11 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
-int start_server() {
+int start_server(char* name) {
   int error, fd;
   struct sockaddr_in addr;
+  struct hostent *resolve;
+  char* adresse;
 
   printf("============= SERVEUR =============\n\n\n");
 
@@ -52,9 +61,19 @@ int start_server() {
     return error;
   }
 
-  char* adresse = inet_ntoa(addr.sin_addr);
+  /*Récupère les informations du serveur pour les afficher*/
+  resolve = gethostbyname(name);
 
-  printf("PORT: %d\nADRESSE: %s\n", PORT, adresse);
+  printf("Testttt\n");
+
+  if(resolve == NULL) {
+    fprintf(stderr, "Adresse non trouvé pour: %s\n", name);
+    exit(1);
+  }
+
+  adresse = inet_ntoa(*((struct in_addr*) (resolve->h_addr_list)[0]));
+
+  printf("NOM D'HOTE: %s\nADRESSE: %s\nPORT: %d\n", name, adresse, PORT);
 
   return fd;
 }

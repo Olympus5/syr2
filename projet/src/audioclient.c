@@ -91,7 +91,7 @@ void init_request(char* audio_metadata, char* filename, char* choix, fd_set* rea
 
   /*Choix du filtre*/
   do {
-    printf("Choississez le filtre à appliquer: (entre 1 et 5)\n1.Stereo vers mono\n2.Echo\n3.Augmentation de la fréquence\n4.Diminution de la fréquence\n5.Aucun\n\n");
+    printf("Choississez le filtre à appliquer: (entre 1 et 5)\n1.Stereo vers mono\n2.Augmentation du volume\n3.Augmentation de la fréquence\n4.Diminution de la fréquence\n5.Aucun\n\n");
 
     fgets(choix, sizeof(choix), stdin);
     clean(choix);
@@ -131,7 +131,7 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
   return 0;
 }
 
-int init_write(char* audio_metadata, char* choix, int* sample_rate, int* sample_size, int* channels) {
+int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate, int* sample_size, int* channels) {
   int error;
 
   /*Initialisation des métadonnées du fichier audio*/
@@ -139,13 +139,17 @@ int init_write(char* audio_metadata, char* choix, int* sample_rate, int* sample_
   *sample_size = atoi(strtok(NULL, ";"));
   *channels = atoi(strtok(NULL, ";"));
 
+  *sound = '1';
+
   switch(atoi(choix)) {
     case 1:/*Stéréo vers mono*/
       *channels = 1;
     break;
 
-    case 2:/*Echo*/
-
+    case 2:/*Augmentation du volume*/
+      printf("Niveau du volume souhaité: ");
+      fgets(sound, sizeof(sound), stdin);
+      if(atoi(sound) < 1) *sound = '1';
     break;
 
     case 3:/*Augmentation de la fréquence*/
@@ -167,6 +171,7 @@ int init_write(char* audio_metadata, char* choix, int* sample_rate, int* sample_
 }
 
 int request_handling(int fd, char* filename) {
+  int i;
   int error;
   int sample_rate, sample_size, channels;/*Metadonnées fichier audio*/
   int fd_write;
@@ -177,6 +182,7 @@ int request_handling(int fd, char* filename) {
   fd_set readfds;/*Liste contenant le descripteur de fichier du client*/
   int ttl;/*Durée de vie de la connexion quand il y a perte de connexion avec le serveur*/
   char choix[2];/*Choix du filtre*/
+  char sound[100];
 
   init_request(audio_metadata, filename, choix, &readfds, &tv, &dest);
 
@@ -204,7 +210,7 @@ int request_handling(int fd, char* filename) {
 
   printf("%s\n", audio_metadata);
 
-  fd_write = error = init_write(audio_metadata, choix, &sample_rate, &sample_size, &channels);
+  fd_write = error = init_write(audio_metadata, choix, sound, &sample_rate, &sample_size, &channels);
 
   if(error < 0) {
     return error;
@@ -243,10 +249,26 @@ int request_handling(int fd, char* filename) {
       ttl = 64;
       error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
 
-      printf("%s\n", buf);
-
       if(error < 0) {
         return error;
+      }
+
+      /*Modification du volume
+      if(strncmp("FIN", buf, (size_t) 3) != 0) {
+        sprintf(buf, "%d", (atoi(buf) << sound));
+      }*/
+
+      printf("%s\n", buf);
+
+      char* p = buf;
+
+      for (i = 0; i == sizeof(buf); i++){
+        char* subbuf[sample_size];
+        memcpy(subbuf, p, sample_size);
+        sprintf(*subbuf, "%d", (atoi(*subbuf) * (atoi(sound))) );
+        memcpy(p, subbuf, sample_size);
+        p += sample_size;
+        memcpy(buf+(sample_size*i), subbuf, sample_size);
       }
 
       error = write(fd_write, buf, (size_t)sample_size);

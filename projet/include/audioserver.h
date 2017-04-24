@@ -11,15 +11,17 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <audio.h>
+#include <netdb.h>
 
 #define PORT 50000
 #define BUFFER_SIZE 1024
 
 /**
  * Initialise le serveur audio
+ * @param name nom d'hote du serveur
  * @return un code entier inferieur à 0 si il y a une erreur, sinon le descripteur de fichier vers le socket du serveur
  */
-int start_server();
+int start_server(char* name);
 
 /**
  * Traite les différentes requêtes reçu
