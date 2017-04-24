@@ -209,7 +209,6 @@ int request_handling(int fd, char* filename) {
   strcpy(buf, "XXX");
   ttl = 64;
 
-  //Ecriture du fichier audio
   while((strncmp("FIN", buf, (size_t) 3) != 0) && (ttl > 0)) {
     bzero(buf, (size_t)BUFFER_SIZE);
 
