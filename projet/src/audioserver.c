@@ -96,7 +96,6 @@ int request_handling(int fd) {
   return 0;
 }
 
-
 int send_file(char* filename, int fd, struct sockaddr_in from) {
   int sample_rate, sample_size, channels;/*Metadonnées du fichier audio*/
   int fd_read;
@@ -122,11 +121,17 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
     return error;
   }
 
-  sprintf(audio_metadata, "%d;%d;%d", sample_rate, sample_size, channels);
-
   flen = sizeof(struct sockaddr_in);
 
-  send_metadata(fd, audio_metadata, &from, flen, &readfds, &tv);
+  sprintf(audio_metadata, "%d;%d;%d", sample_rate, sample_size, channels);
+
+  error = sendto(fd, audio_metadata, BUFFER_SIZE, 0, (struct sockaddr*) &from, flen);
+
+  if(error < 0) {
+    return error;
+  }
+
+  bzero(audio_metadata, (size_t)BUFFER_SIZE);
 
   /*int i = 0;*/
 
@@ -150,10 +155,10 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
       return error;
     }
 
-    /*if(nb == 0) {/*Si timeout atteind...
+    if(nb == 0) {/*Si timeout atteind...*/
       bzero(buf_data, (size_t)BUFFER_SIZE);
       break;
-    }*/
+    }
 
     if (FD_ISSET(fd, &readfds)) {
       error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
@@ -186,58 +191,12 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
       return error;
     }
 
-    //Envoie du flag du fin et reception de l'accusé de reception
-    do {
-      error = sendto(fd, end, strlen(end), 0, (struct sockaddr*) &from, flen);
-
-      if(error < 0) {
-        return error;
-      }
-
-    } while(nb == 0);
+    error = sendto(fd, end, strlen(end), 0, (struct sockaddr*) &from, flen);
   }
 
   if(error < 0) {
     return error;
   }
-
-  return 0;
-}
-
-/*Cette fonction permet de garantir que le client et le serveur reçoivent, respectivement, le premier paquet envoyé*/
-int send_metadata(int fd, char* metadata, struct sockaddr_in* from, int flen, fd_set* readfds, struct timeval* tv) {
-  ssize_t error;/*valeur qui indique si il y a une erreur ou non*/
-  int nb;/*nombre de descripteurs de fichiers prêts*/
-
-  do {
-    error = sendto(fd, metadata, BUFFER_SIZE, 0, (struct sockaddr*) from, flen);
-
-    if(error < 0) {
-      return error;
-    }
-
-    (*tv).tv_sec = 2;
-    (*tv).tv_usec = 0;
-
-    FD_SET(fd, readfds);
-
-    nb = error = select(fd+1, readfds, NULL, NULL, tv);
-
-    if(error < 0) {
-      return error;
-    }
-
-    if(FD_ISSET(fd, readfds)) {
-      error = recvfrom(fd, metadata, 1, 0, (struct sockaddr*) &from, &flen);
-
-      if(error < 0) {
-        return error;
-      }
-    }
-
-    FD_CLR(fd, readfds);
-    bzero(metadata, (size_t)BUFFER_SIZE);
-  } while(nb == 0);
 
   return 0;
 }

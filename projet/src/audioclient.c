@@ -198,6 +198,10 @@ int request_handling(int fd, char* filename) {
     return error;
   }
 
+  if(error == 1) {
+    return error;
+  }
+
   printf("%s\n", audio_metadata);
 
   fd_write = error = init_write(audio_metadata, choix, &sample_rate, &sample_size, &channels);
