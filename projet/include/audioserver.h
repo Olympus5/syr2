@@ -29,11 +29,11 @@ int start_server();
 int request_handling(int fd);
 
 /**
- *
+ * Envoie le contenu du fichier audio demandé (metadonnées et piste audio)
  * @param filename nom de fichier à lire
  * @param fd descripteur de fichier du socket
  * @return
  */
-int lectura_expendiente(char* filename, int fd, struct sockaddr_in from);
+int send_file(char* filename, int fd, struct sockaddr_in from);
 
 #endif

@@ -82,7 +82,7 @@ int request_handling(int fd) {
 
     /*error = sendto(fd, buf_test, strlen(buf_test)+1, 0, (struct sockaddr*) &from, flen);*/
 
-    error = lectura_expendiente(buf, fd, from);
+    error = send_file(buf, fd, from);
 
     if(error < 0) {
       return error;
@@ -94,7 +94,7 @@ int request_handling(int fd) {
   return 0;
 }
 
-int lectura_expendiente(char* filename, int fd, struct sockaddr_in from) {
+int send_file(char* filename, int fd, struct sockaddr_in from) {
   int sample_rate, sample_size, channels;/*Metadonnées du fichier audio*/
   int fd_read;
   socklen_t flen;
