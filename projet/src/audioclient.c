@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
 
   if(error < 0) {
     perror("Erreur lors de l'initialisation du client\n");
+    close(fd);
     exit(1);
   }
 
@@ -51,6 +52,7 @@ int main(int argc, char* argv[]) {
 
   if(error < 0) {
     perror("Erreur lors de la requête client");
+    close(fd);
     exit(1);
   }
 

@@ -31,7 +31,7 @@ void start(char* file) {
 
   fd_write = aud_writeinit(sample_rate, sample_size, channels);
 
-  fd_write_2 = aud_writeinit(sample_rate+1500, sample_size, channels);
+  fd_write_2 = aud_writeinit(sample_rate-3000, sample_size, channels);
 
   if(fd_write < 0) {
     fprintf(stderr, "Erreur, ouverture écriture audio");
