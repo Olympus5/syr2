@@ -1,1 +1,9 @@
-make: Rien à faire pour « all ».
+gcc -o obj/lecture.o -c src/lecture.c -W -Wall -I include/ -g -pedantic
+src/lecture.c: In function ‘start’:
+src/lecture.c:29:3: warning: ISO C90 forbids variable length array ‘buf’ [-Wvla]
+   char buf[sample_size];
+   ^
+src/lecture.c:28:38: warning: unused variable ‘fd_write_3’ [-Wunused-variable]
+   int fd_read, fd_write, fd_write_2, fd_write_3;
+                                      ^
+gcc -o bin/lecture obj/lecture.o obj/audio.o

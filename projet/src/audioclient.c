@@ -1,5 +1,21 @@
 #include <audioclient.h>
 
+static void purger() {
+  int c;
+
+  while((c = getchar()) != '\n' && c != EOF);
+}
+
+static void clean(char* string) {
+  char* p = strchr(string, '\n');
+
+  if(p != NULL) {
+    *p = '\0';
+  } else {
+    purger();
+  }
+}
+
 /**
  * Pour lancer une requête au serveur audio:
  *      bin/audioclient <nom_fichier>
@@ -27,6 +43,7 @@ int main(int argc, char* argv[]) {
 
   if(error < 0) {
     perror("Erreur lors de l'initialisation du client\n");
+    close(fd);
     exit(1);
   }
 
@@ -35,6 +52,7 @@ int main(int argc, char* argv[]) {
 
   if(error < 0) {
     perror("Erreur lors de la requête client");
+    close(fd);
     exit(1);
   }
 
@@ -61,117 +79,187 @@ int init_client() {
   return fd;
 }
 
-int request_handling(int fd, char* filename) {
-  int error;
-  int sample_rate, sample_size, channels;/*Metadonnées fichier audio*/
-  int fd_write;
-  struct sockaddr_in dest;
-  char audio_metadata[BUFFER_SIZE];/*Buffers de reception des metadonnées*/
-  char buf[BUFFER_SIZE];/*Buffers de reception des données*/
-  struct timeval tv;/*Timeout du client*/
-  int nb;/*nombre de descripteurs de fichiers prêts*/
-  fd_set readfds;/*Listes des descripteur de fichiers*/
+void init_request(char* audio_metadata, char* filename, char* choix, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest) {
+  FD_ZERO(readfds);
 
-  dest.sin_family = AF_INET;
-  dest.sin_port = htons(PORT);
-  dest.sin_addr.s_addr = htonl(INADDR_ANY);
+  (*tv).tv_sec = 10;
+  (*tv).tv_usec = 0;
 
-  FD_ZERO(&readfds);
+  (*dest).sin_family = AF_INET;
+  (*dest).sin_port = htons(PORT);
+  (*dest).sin_addr.s_addr = htonl(INADDR_ANY);
 
-  /*Demande d'une piste audio au serveur + reception des metadonnées*/
+  /*Choix du filtre*/
   do {
-    /* Envois de la requête au serveur */
-    error = sendto(fd, filename, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+    printf("Choississez le filtre à appliquer: (entre 1 et 5)\n1.Stereo vers mono\n2.Echo\n3.Augmentation de la fréquence\n4.Diminution de la fréquence\n5.Aucun\n\n");
 
-    if(error < 0) {
-      return error;
-    }
+    fgets(choix, sizeof(choix), stdin);
+    clean(choix);
+  } while(atoi(choix) > 5 || atoi(choix) < 0);
 
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-    FD_SET(fd, &readfds);
+  strcpy(audio_metadata, filename);
+}
 
-    nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
+int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest) {
+  int error;
 
-    if(error < 0){
-      return error;
-    }
-
-    if (FD_ISSET(fd, &readfds)) {
-      /* Attente de la réponse du serveur et traitement de la réponse*/
-      error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
-
-      if(error < 0){
-        return error;
-      }
-    }
-
-    FD_CLR(fd, &readfds);
-  } while(nb == 0);
-
-  printf("%s\n", audio_metadata);
-
-  /*Initialisation des métadonnées du fichier audio*/
-  sample_rate = atoi(strtok(audio_metadata, ";"));
-  sample_size = atoi(strtok(NULL, ";"));
-  channels = atoi(strtok(NULL, ";"));
-
-  fd_write = error = aud_writeinit(sample_rate, sample_size, channels);
+  error = sendto(fd, audio_metadata, BUFFER_SIZE, 0, (struct sockaddr*) dest, sizeof(struct sockaddr_in));
 
   if(error < 0) {
     return error;
   }
 
-  /*Lecture du fichier audio*/
+  FD_SET(fd, readfds);
 
+  error = select(fd+1, readfds, NULL, NULL, tv);
+
+  if(error < 0) {
+    return error;
+  }
+
+  if(error == 0) {
+    return 1;
+  }
+
+  if(FD_ISSET(fd, readfds)) {
+    /* Attente de la réponse du serveur et traitement de la réponse*/
+    error = recvfrom(fd, audio_metadata, BUFFER_SIZE, 0, NULL, 0);
+  }
+
+  FD_CLR(fd, readfds);
+
+  return 0;
+}
+
+int init_write(char* audio_metadata, char* choix, int* sample_rate, int* sample_size, int* channels) {
+  int error;
+
+  /*Initialisation des métadonnées du fichier audio*/
+  *sample_rate = atoi(strtok(audio_metadata, ";"));
+  *sample_size = atoi(strtok(NULL, ";"));
+  *channels = atoi(strtok(NULL, ";"));
+
+  switch(atoi(choix)) {
+    case 1:/*Stéréo vers mono*/
+      *channels = 1;
+    break;
+
+    case 2:/*Echo*/
+
+    break;
+
+    case 3:/*Augmentation de la fréquence*/
+      *sample_rate = (*sample_rate) * 2;
+    break;
+
+    case 4:/*Diminution de la fréquence*/
+      *sample_rate = (*sample_rate) / 2;
+    break;
+  }
+
+  error = aud_writeinit(*sample_rate, *sample_size, *channels);
+
+  if(error < 0) {
+    return error;
+  }
+
+  return error;
+}
+
+int request_handling(int fd, char* filename) {
+  int error;
+  int sample_rate, sample_size, channels;/*Metadonnées fichier audio*/
+  int fd_write;
+  struct sockaddr_in dest;/*En-tête du message à envoyer au serveur audio*/
+  char audio_metadata[BUFFER_SIZE];/*Buffers de reception des metadonnées*/
+  char buf[BUFFER_SIZE];/*Buffers de reception des données*/
+  struct timeval tv;/*Timeout du client*/
+  fd_set readfds;/*Liste contenant le descripteur de fichier du client*/
+  int ttl;/*Durée de vie de la connexion quand il y a perte de connexion avec le serveur*/
+  char choix[2];/*Choix du filtre*/
+
+  init_request(audio_metadata, filename, choix, &readfds, &tv, &dest);
+
+  ttl = 64;
+
+  /*Permet de garantir l'envoie et la reception du premier datagramme*/
   do {
+    error = send_metadata(fd, audio_metadata, &readfds, &tv, &dest);
+    ttl--;
+    if(error == 1) printf("Timeout écoulé, la requête n'a pas pu être pris en charge. Nombre d'essais restant %d.\n", ttl);
+  } while(error == 1 && ttl > 0);
 
-    do {
-      error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+  if(ttl <= 0) {
+    printf("Serveur injoignable. Veuillez ressayer.");
+    return 0;
+  }
 
-      if(error < 0) {
-        return error;
-      }
+  if(error < 0) {
+    return error;
+  }
 
-      tv.tv_sec = 1;
-      tv.tv_usec = 0;
-      FD_SET(fd, &readfds);
+  printf("%s\n", audio_metadata);
 
-      nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
+  fd_write = error = init_write(audio_metadata, choix, &sample_rate, &sample_size, &channels);
 
-      if(error < 0){
-        return error;
-      }
+  if(error < 0) {
+    return error;
+  }
 
-      if (FD_ISSET(fd, &readfds)) {
-        /* Attente de la réponse du serveur et traitement de la réponse*/
-        error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
+  strcpy(buf, "XXX");
+  ttl = 64;
 
-        if(error < 0){
-          return error;
-        }
-      }
+  //Ecriture du fichier audio
+  while((strncmp("FIN", buf, (size_t) 3) != 0) && (ttl > 0)) {
+    bzero(buf, (size_t)BUFFER_SIZE);
 
-      FD_CLR(fd, &readfds);
-    } while (nb == 0);
-
-    if(strncmp("FIN", buf, (size_t) 3) == 0) break;
-
-    printf("Test\n");
-
-    error = write(fd_write, buf, (size_t)sample_size);
-
-    printf("%s\n", buf);
+    error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
     if(error < 0) {
       return error;
     }
 
-    bzero(buf, (size_t)BUFFER_SIZE);
-  } while (error <= BUFFER_SIZE);
+    FD_SET(fd, &readfds);
+
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+
+    error = select(fd+1, &readfds, NULL, NULL, &tv);
+
+    if(error < 0) {
+      return error;
+    }
+
+    if(error == 0) {
+      ttl--;
+      printf("Perte de la connexion veuillez patienter...\n");
+      continue;
+    }
+
+    if(FD_ISSET(fd, &readfds)) {
+      ttl = 64;
+      error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
+
+      printf("%s\n", buf);
+
+      if(error < 0) {
+        return error;
+      }
+
+      error = write(fd_write, buf, (size_t)sample_size);
+
+      if(error < 0) {
+        return error;
+      }
+    }
+  }
 
   if(error < 0) {
     return error;
+  }
+
+  if(ttl == 0) {
+    printf("Connexion perdu. Fin de la connexion.\n");
   }
 
   return 0;

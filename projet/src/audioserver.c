@@ -21,6 +21,8 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
+  close(fd);
+
   return 0;
 }
 
@@ -50,7 +52,7 @@ int start_server() {
     return error;
   }
 
-  char* adresse = "0.0.0.0";
+  char* adresse = inet_ntoa(addr.sin_addr);
 
   printf("PORT: %d\nADRESSE: %s\n", PORT, adresse);
 
@@ -82,7 +84,7 @@ int request_handling(int fd) {
 
     /*error = sendto(fd, buf_test, strlen(buf_test)+1, 0, (struct sockaddr*) &from, flen);*/
 
-    error = read_file(buf, fd, from);
+    error = send_file(buf, fd, from);
 
     if(error < 0) {
       return error;
@@ -94,7 +96,8 @@ int request_handling(int fd) {
   return 0;
 }
 
-int read_file(char* filename, int fd, struct sockaddr_in from) {
+
+int send_file(char* filename, int fd, struct sockaddr_in from) {
   int sample_rate, sample_size, channels;/*Metadonnées du fichier audio*/
   int fd_read;
   socklen_t flen;
@@ -125,7 +128,7 @@ int read_file(char* filename, int fd, struct sockaddr_in from) {
 
   send_metadata(fd, audio_metadata, &from, flen, &readfds, &tv);
 
-  int i = 0;
+  /*int i = 0;*/
 
   /*Envoie des informtions du fichier audio au client*/
   while((ssize_t) sample_size <= (error = read(fd_read, buf_data, (size_t) sample_size))) {
@@ -138,8 +141,8 @@ int read_file(char* filename, int fd, struct sockaddr_in from) {
 
     FD_SET(fd, &readfds);
 
-    //printf("Valeur de i=%d\n", i);
-    //printf("Attente d'une requête...\n");
+    /*printf("Valeur de i=%d\n", i);
+    printf("Attente d'une requête...\n");*/
 
     nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
 
@@ -167,7 +170,7 @@ int read_file(char* filename, int fd, struct sockaddr_in from) {
       }
     }
 
-    i++;
+    /*i++;*/
 
     FD_CLR(fd, &readfds);
     bzero(buf_data, (size_t)BUFFER_SIZE);
