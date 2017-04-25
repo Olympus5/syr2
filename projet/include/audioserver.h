@@ -41,13 +41,11 @@ int read_file(char* filename, int fd, struct sockaddr_in from);
 
 /**
  * Envoie les metadonnées du fichier demandé par le client
- * @param fd
- * @param metadata
- * @param from
- * @flen
- * @return
+ * @param filename nom du fichier à lire
+ * @param fd socket
+ * @param from client qui fair la requête
+ * @return un code entier inferieur à 0 si il y a une erreur, sinon 0
  */
-
 int send_file(char* filename, int fd, struct sockaddr_in from);
 
 #endif

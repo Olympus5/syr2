@@ -16,6 +16,7 @@
 #define PORT 50000
 #define BUFFER_SIZE 1024
 
+/*Filtres*/
 #define NOTHING 0
 #define MONO 1
 #define MULT_RATE 2
@@ -54,8 +55,8 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
 
 /**
  * initialise l'écriture d'un fichier audio sur une sortie audio
- * @param audio_metadata
- * @param choix
+ * @param audio_metadata metadonnée du fichier audio à lire
+ * @param choix filtre à appliquer
  * @param sample_rate
  * @param sample_size
  * @param channels
