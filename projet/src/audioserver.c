@@ -137,6 +137,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
   fd_read = error = aud_readinit(filename, &sample_rate, &sample_size, &channels);
 
   if(error < 0) {
+    close(fd_read);
     return error;
   }
 
@@ -147,6 +148,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
   error = sendto(fd, audio_metadata, BUFFER_SIZE, 0, (struct sockaddr*) &from, flen);
 
   if(error < 0) {
+    close(fd_read);
     return error;
   }
 
@@ -160,6 +162,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
     tv.tv_usec = 0;
 
     if(error < 0) {
+      close(fd_read);
       return error;
     }
 
@@ -171,6 +174,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
     nb = error = select(fd+1, &readfds, NULL, NULL, &tv);
 
     if(error < 0) {
+      close(fd_read);
       return error;
     }
 
@@ -182,6 +186,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
     if (FD_ISSET(fd, &readfds)) {
       error = recvfrom(fd, buf, 1, 0, (struct sockaddr*) &from, &flen);
       if(error < 0) {
+        close(fd_read);
         return error;
       }
 
@@ -190,6 +195,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
       /*printf("%d => %d\n", sample_size, error);*/
 
       if(error < 0) {
+        close(fd_read);
         return error;
       }
     }
@@ -199,6 +205,8 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
     FD_CLR(fd, &readfds);
     bzero(buf_data, (size_t)BUFFER_SIZE);
   }
+
+  close(fd_read);
 
   /*Pour gérer le timeout*/
   if(nb == 0) {

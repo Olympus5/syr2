@@ -221,6 +221,7 @@ int request_handling(int fd, char* filename) {
   fd_write = error = init_write(audio_metadata, choix, &filter, volume, &sample_rate, &sample_size, &channels);
 
   if(error < 0) {
+    close(fd_write);
     return error;
   }
 
@@ -233,6 +234,7 @@ int request_handling(int fd, char* filename) {
     error = sendto(fd, " ", 1, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 
     if(error < 0) {
+      close(fd_write);
       return error;
     }
 
@@ -244,6 +246,7 @@ int request_handling(int fd, char* filename) {
     error = select(fd+1, &readfds, NULL, NULL, &tv);
 
     if(error < 0) {
+      close(fd_write);
       return error;
     }
 
@@ -260,6 +263,7 @@ int request_handling(int fd, char* filename) {
       printf("%s\n", buf);
 
       if(error < 0) {
+        close(fd_write);
         return error;
       }
 
@@ -284,9 +288,9 @@ int request_handling(int fd, char* filename) {
         case VOLUME :
           for(j = 0; j < sample_size/2; j++) {
 
-              if(sample_size == 16) {
+              if(sample_size == 16) {/*16 bit*/
                 data = (((int) buf[1]) << 8) + (buf[0]) - 1;
-              } else {
+              } else {/*8 bit*/
                 data = buf[0];
               }
 
@@ -307,10 +311,13 @@ int request_handling(int fd, char* filename) {
       }
 
       if(error < 0) {
+        close(fd_write);
         return error;
       }
     }
   }
+
+  close(fd_write);
 
   if(error < 0) {
     return error;
