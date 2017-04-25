@@ -49,22 +49,8 @@ int start_server(char* name) {
     return error;
   }
 
-  /*Initialise l'adresse réseau et le port du serveur*/
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(PORT);
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  /*Met les informations du serveur sur la socket*/
-  error = bind(fd, (struct sockaddr*) &addr, sizeof(struct sockaddr_in));
-
-  if(error < 0) {
-    return error;
-  }
-
-  /*Récupère les informations du serveur pour les afficher*/
+  /*Récupère les informations du serveur*/
   resolve = gethostbyname(name);
-
-  printf("Testttt\n");
 
   if(resolve == NULL) {
     fprintf(stderr, "Adresse non trouvé pour: %s\n", name);
@@ -73,6 +59,19 @@ int start_server(char* name) {
 
   adresse = inet_ntoa(*((struct in_addr*) (resolve->h_addr_list)[0]));
 
+  /*Initialise l'adresse réseau et le port du serveur*/
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(PORT);
+  addr.sin_addr.s_addr = inet_addr(adresse);
+
+  /*Met les informations du serveur sur la socket*/
+  error = bind(fd, (struct sockaddr*) &addr, sizeof(struct sockaddr_in));
+
+  if(error < 0) {
+    return error;
+  }
+
+  /*Affiche les info sur le serveur*/
   printf("NOM D'HOTE: %s\nADRESSE: %s\nPORT: %d\n", name, adresse, PORT);
 
   return fd;

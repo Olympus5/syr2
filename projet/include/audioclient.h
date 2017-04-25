@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <audio.h>
+#include <netdb.h>
 
 #define PORT 50000
 #define BUFFER_SIZE 1024
@@ -31,13 +32,14 @@ int init_client();
 
 /**
  * Initialise l'envoie des metadonnées
+ * @param server_name nom du serveur à joindre
  * @param audio_metadata metadonnées à envoyer au client
  * @param filename nom du fichier à lire
  * @param readfds liste des descripteur de fichier du client à mettre à zéro
  * @param tv timeout de la première requête
  * @param dest information du destinataire
  */
-void init_request(char* audio_metadata, char* filename, char* choix, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest);
+void init_request(char* server_name, char* audio_metadata, char* filename, char* choix, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest);
 
 /**
  * envoie les métadonnées au serveur afin d'établir une connexion
@@ -63,10 +65,11 @@ int init_write(char* audio_metadata, char* choix, int* filter, char* volume, int
 
 /**
  * Traite les différentes étapes de la requête vers le serveur audio
- * @param fd
- * @param filename
+ * @param fd socket
+ * @param filename nom du fichier à lire
+ * @param server_name nom du serveur à joindre
  * @return un code entier inferieur à 0 si il y a une erreur, 0 sinon
  */
-int request_handling(int fd, char* filename);
+int request_handling(int fd, char* filename, char* server_name);
 
 #endif

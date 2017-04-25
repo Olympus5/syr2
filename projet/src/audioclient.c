@@ -22,11 +22,17 @@ static void clean(char* string) {
  */
 int main(int argc, char* argv[]) {
   int fd, error;
-  char* file = argv[1];
+  char* file = argv[2];
   char* extension;
+  char* server_name = argv[1];
+
+  if(argc <= 1) {
+    fprintf(stderr, "Erreur, veuillez indiquer le serveur de streaming audio\n");
+    exit(1);
+  }
 
   /* Vérification du fichier passé en paramètre */
-  if(argc <= 1) {
+  if(argc <= 2) {
     fprintf(stderr, "Erreur, veuillez indiquer le fichier audio à lire\n");
     exit(1);
   }
@@ -48,7 +54,7 @@ int main(int argc, char* argv[]) {
   }
 
   /* Envois de la requête */
-  error = request_handling(fd, file);
+  error = request_handling(fd, file, server_name);
 
   if(error < 0) {
     perror("Erreur lors de la requête client");
@@ -79,15 +85,28 @@ int init_client() {
   return fd;
 }
 
-void init_request(char* audio_metadata, char* filename, char* choix, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest) {
+void init_request(char* server_name, char* audio_metadata, char* filename, char* choix, fd_set* readfds, struct timeval *tv, struct sockaddr_in *dest) {
+  struct hostent *resolve;
+  char* adresse;
+
   FD_ZERO(readfds);
 
   (*tv).tv_sec = 10;
   (*tv).tv_usec = 0;
 
+  /*Initialise l'adresse réseau et le port du serveur*/
+  resolve = gethostbyname(server_name);
+
+  if(resolve == NULL) {
+    fprintf(stderr, "Adresse non trouvé pour: %s\n", server_name);
+    exit(1);
+  }
+
+  adresse = inet_ntoa(*((struct in_addr*) (resolve->h_addr_list)[0]));
+
   (*dest).sin_family = AF_INET;
   (*dest).sin_port = htons(PORT);
-  (*dest).sin_addr.s_addr = htonl(INADDR_ANY);
+  (*dest).sin_addr.s_addr = inet_addr(adresse);
 
   /*Choix du filtre*/
   do {
@@ -104,7 +123,7 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
   int error;
 
   error = sendto(fd, audio_metadata, BUFFER_SIZE, 0, (struct sockaddr*) dest, sizeof(struct sockaddr_in));
-
+  printf("Pipi\n");
   if(error < 0) {
     return error;
   }
@@ -175,7 +194,7 @@ int init_write(char* audio_metadata, char* choix, int* filter, char* volume, int
   return error;
 }
 
-int request_handling(int fd, char* filename) {
+int request_handling(int fd, char* filename, char* server_name) {
   int error;
   int sample_rate, sample_size, channels;/*Metadonnées fichier audio*/
   int fd_write;
@@ -192,7 +211,7 @@ int request_handling(int fd, char* filename) {
   int data;
   char volume[10] = "1";
 
-  init_request(audio_metadata, filename, choix, &readfds, &tv, &dest);
+  init_request(server_name, audio_metadata, filename, choix, &readfds, &tv, &dest);
 
   ttl = 64;
 
@@ -217,6 +236,8 @@ int request_handling(int fd, char* filename) {
   }
 
   printf("%s\n", audio_metadata);
+
+
 
   fd_write = error = init_write(audio_metadata, choix, &filter, volume, &sample_rate, &sample_size, &channels);
 
