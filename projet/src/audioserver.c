@@ -155,7 +155,7 @@ int send_file(char* filename, int fd, struct sockaddr_in from) {
   /*int i = 0;*/
 
   /*Envoie des informtions du fichier audio au client*/
-  while((ssize_t) sample_size <= (error = read(fd_read, buf_data, (size_t) sample_size))) {
+  while((ssize_t) (sample_size) <= (error = read(fd_read, buf_data, (size_t) (sample_size)))) {
     tv.tv_sec = 10;
     tv.tv_usec = 0;
 

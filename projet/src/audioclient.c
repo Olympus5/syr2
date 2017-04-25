@@ -91,7 +91,7 @@ void init_request(char* audio_metadata, char* filename, char* choix, fd_set* rea
 
   /*Choix du filtre*/
   do {
-    printf("Choississez le filtre à appliquer: (entre 1 et 5)\n1.Stereo vers mono\n2.Augmentation du volume\n3.Augmentation de la fréquence\n4.Diminution de la fréquence\n5.Aucun\n\n");
+    printf("Choississez le filtre à appliquer: (entre 1 et 5)\n1.Stereo vers mono\n2.Augmentation de la fréquence\n3.Diminution de la fréquence\n4.Augmentation du volume\n5.Aucun\n\n");
 
     fgets(choix, sizeof(choix), stdin);
     clean(choix);
@@ -131,7 +131,7 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
   return 0;
 }
 
-int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate, int* sample_size, int* channels) {
+int init_write(char* audio_metadata, char* choix, int* filter, char* volume, int* sample_rate, int* sample_size, int* channels) {
   int error;
 
   /*Initialisation des métadonnées du fichier audio*/
@@ -139,26 +139,31 @@ int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate,
   *sample_size = atoi(strtok(NULL, ";"));
   *channels = atoi(strtok(NULL, ";"));
 
-  *sound = '1';
-
   switch(atoi(choix)) {
     case 1:/*Stéréo vers mono*/
+      *filter = MONO;
       *channels = 1;
     break;
 
-    case 2:/*Augmentation du volume*/
+    case 2:/*Augmentation de la fréquence*/
+      *filter = MULT_RATE;
+      *sample_rate = *sample_rate * 2;
+    break;
+
+    case 3:/*Diminution de la fréquence*/
+      *filter = DIV_RATE;
+      *sample_rate = *sample_rate / 2;
+    break;
+
+    case 4:/*Echo*/
+      *filter = VOLUME;
+
       printf("Niveau du volume souhaité: ");
-      fgets(sound, sizeof(sound), stdin);
-      if(atoi(sound) < 1) *sound = '1';
+      fgets(volume, sizeof(volume), stdin);
     break;
 
-    case 3:/*Augmentation de la fréquence*/
-      *sample_rate = (*sample_rate) * 2;
-    break;
-
-    case 4:/*Diminution de la fréquence*/
-      *sample_rate = (*sample_rate) / 2;
-    break;
+    default:
+      *filter = NOTHING;
   }
 
   error = aud_writeinit(*sample_rate, *sample_size, *channels);
@@ -171,7 +176,6 @@ int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate,
 }
 
 int request_handling(int fd, char* filename) {
-  int i;
   int error;
   int sample_rate, sample_size, channels;/*Metadonnées fichier audio*/
   int fd_write;
@@ -182,7 +186,11 @@ int request_handling(int fd, char* filename) {
   fd_set readfds;/*Liste contenant le descripteur de fichier du client*/
   int ttl;/*Durée de vie de la connexion quand il y a perte de connexion avec le serveur*/
   char choix[2];/*Choix du filtre*/
-  char sound[100];
+  int filter;/*Filtre choisi*/
+  int i = 0;
+  int j;
+  int data;
+  char volume[10] = "1";
 
   init_request(audio_metadata, filename, choix, &readfds, &tv, &dest);
 
@@ -210,7 +218,7 @@ int request_handling(int fd, char* filename) {
 
   printf("%s\n", audio_metadata);
 
-  fd_write = error = init_write(audio_metadata, choix, sound, &sample_rate, &sample_size, &channels);
+  fd_write = error = init_write(audio_metadata, choix, &filter, volume, &sample_rate, &sample_size, &channels);
 
   if(error < 0) {
     return error;
@@ -249,29 +257,54 @@ int request_handling(int fd, char* filename) {
       ttl = 64;
       error = recvfrom(fd, buf, BUFFER_SIZE, 0, NULL, 0);
 
+      printf("%s\n", buf);
+
       if(error < 0) {
         return error;
       }
 
-      /*Modification du volume
-      if(strncmp("FIN", buf, (size_t) 3) != 0) {
-        sprintf(buf, "%d", (atoi(buf) << sound));
-      }*/
 
-      printf("%s\n", buf);
+      /*Le contenu du buffer est splitté afin de mieux gérer les effets des filtres*/
+      char buf_data[sample_size/2][sample_size/8];
 
-      char* p = buf;
-
-      for (i = 0; i == sizeof(buf); i++){
-        char* subbuf[sample_size];
-        memcpy(subbuf, p, sample_size);
-        sprintf(*subbuf, "%d", (atoi(*subbuf) * (atoi(sound))) );
-        memcpy(p, subbuf, sample_size);
-        p += sample_size;
-        memcpy(buf+(sample_size*i), subbuf, sample_size);
+      for(j = 0; j < sample_size / 2; j++) {
+        memcpy(buf_data[j], buf+(sample_size/8)*j, sample_size/8);
       }
 
-      error = write(fd_write, buf, (size_t)sample_size);
+      /*Gestion des filtres*/
+      switch(filter) {
+        case MONO :
+          for(j = 0; j < sample_size/2; j++) {
+              i = i % 2;
+              if(i == 0) error = write(fd_write, buf_data, (size_t)(sample_size/8));
+              i++;
+          }
+        break;
+
+        case VOLUME :
+          for(j = 0; j < sample_size/2; j++) {
+
+              if(sample_size == 16) {
+                data = (((int) buf[1]) << 8) + (buf[0]) - 1;
+              } else {
+                data = buf[0];
+              }
+
+              data *= atoi(volume);
+              error = write(fd_write, &data, (size_t)(sample_size/8));
+          }
+        break;
+
+        case MULT_RATE:
+
+        case DIV_RATE:
+
+        case NOTHING:
+          for(j = 0; j < sample_size/2; j++) {
+              error = write(fd_write, buf_data[j], (size_t)(sample_size/8));
+          }
+        break;
+      }
 
       if(error < 0) {
         return error;

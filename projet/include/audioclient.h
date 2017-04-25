@@ -15,6 +15,14 @@
 #define PORT 50000
 #define BUFFER_SIZE 1024
 
+#define NOTHING 0
+#define MONO 1
+#define MULT_RATE 2
+#define DIV_RATE 3
+#define VOLUME 4
+#define ECHO 5
+#define UP_SOUND 5
+
 /**
  * Initialise une connection avec un serveur audio
  * @return un code entier inferieur à 0 si il y a une erreur, sinon un descripteur de fichier vers le socket du client
@@ -51,7 +59,7 @@ int send_metadata(int fd, char* audio_metadata, fd_set* readfds, struct timeval 
  * @param channels
  * @return un code entier inferieur à 0 si il y a une erreur, 0 sinon
  */
-int init_write(char* audio_metadata, char* choix, char* sound, int* sample_rate, int* sample_size, int* channels);
+int init_write(char* audio_metadata, char* choix, int* filter, char* volume, int* sample_rate, int* sample_size, int* channels);
 
 /**
  * Traite les différentes étapes de la requête vers le serveur audio
